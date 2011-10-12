@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<package xmlns="http://typo3.org/ns/2008/flow3/package">
+    <key>Symfony.Component.Yaml</key>
+    <title>Symfony Components</title>
+    <description>T</description>
+    <version></version>
+    <state>Development</state>
+    <categories>
+        <category>Backend</category>
+    </categories>
+    <constraints>
+        <depends>
+            <package>TYPO3.FLOW3</package>
+        </depends>
+        <conflicts/>
+        <suggests/>
+    </constraints>
+</package>
