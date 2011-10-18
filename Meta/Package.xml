@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <package xmlns="http://typo3.org/ns/2008/flow3/package">
     <key>Symfony.Component.Yaml</key>
-    <title>Symfony Components</title>
-    <description>T</description>
-    <version></version>
+    <title>Symfony Components YAML Library</title>
+    <description>The Symfony YAML Component</description>
+    <version>1.0.6</version>
     <state>Development</state>
     <categories>
         <category>Backend</category>
