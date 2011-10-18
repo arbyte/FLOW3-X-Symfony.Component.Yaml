@@ -1,5 +1,4 @@
 <?php
-
 namespace Symfony\Component\Yaml;
 
 /*
@@ -37,15 +36,30 @@ class Inline
       return '';
     }
 
+    if (function_exists('mb_internal_encoding') && ((int) ini_get('mbstring.func_overload')) & 2)
+    {
+      $mbEncoding = mb_internal_encoding();
+      mb_internal_encoding('ASCII');
+    }
+
     switch ($value[0])
     {
       case '[':
-        return self::parseSequence($value);
+        $result = self::parseSequence($value);
+        break;
       case '{':
-        return self::parseMapping($value);
+        $result = self::parseMapping($value);
+        break;
       default:
-        return self::parseScalar($value);
+        $result = self::parseScalar($value);
     }
+
+    if (isset($mbEncoding))
+    {
+      mb_internal_encoding($mbEncoding);
+    }
+
+    return $result;
   }
 
   /**
@@ -57,13 +71,21 @@ class Inline
    */
   static public function dump($value)
   {
-    $trueValues = '1.1' == Yaml::getSpecVersion() ? array('true', 'on', '+', 'yes', 'y') : array('true');
-    $falseValues = '1.1' == Yaml::getSpecVersion() ? array('false', 'off', '-', 'no', 'n') : array('false');
+    if ('1.1' === Yaml::getSpecVersion())
+    {
+      $trueValues = array('true', 'on', '+', 'yes', 'y');
+      $falseValues = array('false', 'off', '-', 'no', 'n');
+    }
+    else
+    {
+      $trueValues = array('true');
+      $falseValues = array('false');
+    }
 
     switch (true)
     {
       case is_resource($value):
-        throw new Exception('Unable to dump PHP resources in a YAML file.');
+        throw new \InvalidArgumentException('Unable to dump PHP resources in a YAML file.');
       case is_object($value):
         return '!!php/object:'.serialize($value);
       case is_array($value):
@@ -111,7 +133,7 @@ class Inline
     if (
       (1 == count($keys) && '0' == $keys[0])
       ||
-      (count($keys) > 1 && array_reduce($keys, function ($v, $w) { return (integer) $v + $w; }, 0) == count($keys) * (count($keys) - 1) / 2))
+      (count($keys) > 1 && array_reduce($keys, create_function('$v,$w', 'return (integer) $v + $w;'), 0) == count($keys) * (count($keys) - 1) / 2))
     {
       $output = array();
       foreach ($value as $val)
@@ -171,7 +193,7 @@ class Inline
       }
       else
       {
-        throw new ParserException(sprintf('Malformed inline YAML string (%s).', $scalar));
+        throw new \InvalidArgumentException(sprintf('Malformed inline YAML string (%s).', $scalar));
       }
 
       $output = $evaluate ? self::evaluateScalar($output) : $output;
@@ -190,9 +212,9 @@ class Inline
    */
   static protected function parseQuotedScalar($scalar, &$i)
   {
-    if (!preg_match('/'.self::REGEX_QUOTED_STRING.'/A', substr($scalar, $i), $match))
+    if (!preg_match('/'.self::REGEX_QUOTED_STRING.'/Au', substr($scalar, $i), $match))
     {
-      throw new ParserException(sprintf('Malformed inline YAML string (%s).', substr($scalar, $i)));
+      throw new \InvalidArgumentException(sprintf('Malformed inline YAML string (%s).', substr($scalar, $i)));
     }
 
     $output = substr($match[0], 1, strlen($match[0]) - 2);
@@ -270,7 +292,7 @@ class Inline
       ++$i;
     }
 
-    throw new ParserException(sprintf('Malformed inline YAML string %s', $sequence));
+    throw new \InvalidArgumentException(sprintf('Malformed inline YAML string %s', $sequence));
   }
 
   /**
@@ -337,7 +359,7 @@ class Inline
       }
     }
 
-    throw new ParserException(sprintf('Malformed inline YAML string %s', $mapping));
+    throw new \InvalidArgumentException(sprintf('Malformed inline YAML string %s', $mapping));
   }
 
   /**
@@ -351,8 +373,16 @@ class Inline
   {
     $scalar = trim($scalar);
 
-    $trueValues = '1.1' == Yaml::getSpecVersion() ? array('true', 'on', '+', 'yes', 'y') : array('true');
-    $falseValues = '1.1' == Yaml::getSpecVersion() ? array('false', 'off', '-', 'no', 'n') : array('false');
+    if ('1.1' === Yaml::getSpecVersion())
+    {
+      $trueValues = array('true', 'on', '+', 'yes', 'y');
+      $falseValues = array('false', 'off', '-', 'no', 'n');
+    }
+    else
+    {
+      $trueValues = array('true');
+      $falseValues = array('false');
+    }
 
     switch (true)
     {
@@ -408,3 +438,4 @@ class Inline
 EOF;
   }
 }
+?>

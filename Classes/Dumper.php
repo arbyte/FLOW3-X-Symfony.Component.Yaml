@@ -1,5 +1,4 @@
 <?php
-
 namespace Symfony\Component\Yaml;
 
 /*
@@ -57,3 +56,4 @@ class Dumper
     return $output;
   }
 }
+?>

@@ -1,5 +1,4 @@
 <?php
-
 namespace Symfony\Component\Yaml;
 
 /*
@@ -54,7 +53,7 @@ class Yaml
    *
    *  Usage:
    *  <code>
-   *   $array = Yaml::load('config.yml');
+   *   $array = \Symfony\Component\Yaml\Yaml::load('config.yml');
    *   print_r($array);
    *  </code>
    *
@@ -119,3 +118,4 @@ class Yaml
     return $yaml->dump($array, $inline);
   }
 }
+?>

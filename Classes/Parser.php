@@ -1,5 +1,4 @@
 <?php
-
 namespace Symfony\Component\Yaml;
 
 /*
@@ -10,6 +9,11 @@ namespace Symfony\Component\Yaml;
  * file that was distributed with this source code.
  */
 
+if (!defined('PREG_BAD_UTF8_OFFSET_ERROR'))
+{
+  define('PREG_BAD_UTF8_OFFSET_ERROR', 5);
+}
+
 /**
  * Parser parses YAML strings to convert them to PHP arrays.
  *
@@ -19,11 +23,12 @@ namespace Symfony\Component\Yaml;
  */
 class Parser
 {
-  protected $offset         = 0;
-  protected $lines          = array();
-  protected $currentLineNb  = -1;
-  protected $currentLine    = '';
-  protected $refs           = array();
+  protected
+    $offset        = 0,
+    $lines         = array(),
+    $currentLineNb = -1,
+    $currentLine   = '',
+    $refs          = array();
 
   /**
    * Constructor
@@ -42,13 +47,19 @@ class Parser
    *
    * @return mixed  A PHP value
    *
-   * @throws \InvalidArgumentException If the YAML is not valid
+   * @throws InvalidArgumentException If the YAML is not valid
    */
   public function parse($value)
   {
     $this->currentLineNb = -1;
     $this->currentLine = '';
     $this->lines = explode("\n", $this->cleanup($value));
+
+    if (function_exists('mb_internal_encoding') && ((int) ini_get('mbstring.func_overload')) & 2)
+    {
+      $mbEncoding = mb_internal_encoding();
+      mb_internal_encoding('UTF-8');
+    }
 
     $data = array();
     while ($this->moveToNextLine())
@@ -61,13 +72,13 @@ class Parser
       // tab?
       if (preg_match('#^\t+#', $this->currentLine))
       {
-        throw new ParserException(sprintf('A YAML file cannot contain tabs as indentation at line %d (%s).', $this->getRealCurrentLineNb() + 1, $this->currentLine));
+        throw new \InvalidArgumentException(sprintf('A YAML file cannot contain tabs as indentation at line %d (%s).', $this->getRealCurrentLineNb() + 1, $this->currentLine));
       }
 
       $isRef = $isInPlace = $isProcessed = false;
-      if (preg_match('#^\-((?P<leadspaces>\s+)(?P<value>.+?))?\s*$#', $this->currentLine, $values))
+      if (preg_match('#^\-((?P<leadspaces>\s+)(?P<value>.+?))?\s*$#u', $this->currentLine, $values))
       {
-        if (isset($values['value']) && preg_match('#^&(?P<ref>[^ ]+) *(?P<value>.*)#', $values['value'], $matches))
+        if (isset($values['value']) && preg_match('#^&(?P<ref>[^ ]+) *(?P<value>.*)#u', $values['value'], $matches))
         {
           $isRef = $matches['ref'];
           $values['value'] = $matches['value'];
@@ -85,7 +96,7 @@ class Parser
         {
           if (isset($values['leadspaces'])
             && ' ' == $values['leadspaces']
-            && preg_match('#^(?P<key>'.Inline::REGEX_QUOTED_STRING.'|[^ \'"\{].*?) *\:(\s+(?P<value>.+?))?\s*$#', $values['value'], $matches))
+            && preg_match('#^(?P<key>'.Inline::REGEX_QUOTED_STRING.'|[^ \'"\{].*?) *\:(\s+(?P<value>.+?))?\s*$#u', $values['value'], $matches))
           {
             // this is a compact notation element, add to next block and parse
             $c = $this->getRealCurrentLineNb();
@@ -106,7 +117,7 @@ class Parser
           }
         }
       }
-      else if (preg_match('#^(?P<key>'.Inline::REGEX_QUOTED_STRING.'|[^ \'"].*?) *\:(\s+(?P<value>.+?))?\s*$#', $this->currentLine, $values))
+      else if (preg_match('#^(?P<key>'.Inline::REGEX_QUOTED_STRING.'|[^ \'"].*?) *\:(\s+(?P<value>.+?))?\s*$#u', $this->currentLine, $values))
       {
         $key = Inline::parseScalar($values['key']);
 
@@ -117,7 +128,7 @@ class Parser
             $isInPlace = substr($values['value'], 1);
             if (!array_key_exists($isInPlace, $this->refs))
             {
-              throw new ParserException(sprintf('Reference "%s" does not exist at line %s (%s).', $isInPlace, $this->getRealCurrentLineNb() + 1, $this->currentLine));
+              throw new \InvalidArgumentException(sprintf('Reference "%s" does not exist at line %s (%s).', $isInPlace, $this->getRealCurrentLineNb() + 1, $this->currentLine));
             }
           }
           else
@@ -138,7 +149,7 @@ class Parser
             $merged = array();
             if (!is_array($parsed))
             {
-              throw new ParserException(sprintf("YAML merge keys used with a scalar value instead of an array at line %s (%s)", $this->getRealCurrentLineNb() + 1, $this->currentLine));
+              throw new \InvalidArgumentException(sprintf("YAML merge keys used with a scalar value instead of an array at line %s (%s)", $this->getRealCurrentLineNb() + 1, $this->currentLine));
             }
             else if (isset($parsed[0]))
             {
@@ -147,7 +158,7 @@ class Parser
               {
                 if (!is_array($parsedItem))
                 {
-                  throw new ParserException(sprintf("Merge items must be arrays at line %s (%s).", $this->getRealCurrentLineNb() + 1, $parsedItem));
+                  throw new \InvalidArgumentException(sprintf("Merge items must be arrays at line %s (%s).", $this->getRealCurrentLineNb() + 1, $parsedItem));
                 }
                 $merged = array_merge($parsedItem, $merged);
               }
@@ -155,13 +166,13 @@ class Parser
             else
             {
               // Associative array, merge
-              $merged = array_merge($merge, $parsed);
+              $merged = array_merge($merged, $parsed);
             }
 
             $isProcessed = $merged;
           }
         }
-        else if (isset($values['value']) && preg_match('#^&(?P<ref>[^ ]+) *(?P<value>.*)#', $values['value'], $matches))
+        else if (isset($values['value']) && preg_match('#^&(?P<ref>[^ ]+) *(?P<value>.*)#u', $values['value'], $matches))
         {
           $isRef = $matches['ref'];
           $values['value'] = $matches['value'];
@@ -220,6 +231,11 @@ class Parser
             }
           }
 
+          if (isset($mbEncoding))
+          {
+            mb_internal_encoding($mbEncoding);
+          }
+
           return $value;
         }
 
@@ -244,13 +260,18 @@ class Parser
             $error = 'Unable to parse line';
         }
 
-        throw new ParserException(sprintf('%s %d (%s).', $error, $this->getRealCurrentLineNb() + 1, $this->currentLine));
+        throw new \InvalidArgumentException(sprintf('%s %d (%s).', $error, $this->getRealCurrentLineNb() + 1, $this->currentLine));
       }
 
       if ($isRef)
       {
         $this->refs[$isRef] = end($data);
       }
+    }
+
+    if (isset($mbEncoding))
+    {
+      mb_internal_encoding($mbEncoding);
     }
 
     return empty($data) ? null : $data;
@@ -293,7 +314,7 @@ class Parser
 
       if (!$this->isCurrentLineEmpty() && 0 == $newIndent)
       {
-        throw new ParserException(sprintf('Indentation problem at line %d (%s)', $this->getRealCurrentLineNb() + 1, $this->currentLine));
+        throw new \InvalidArgumentException(sprintf('Indentation problem at line %d (%s)', $this->getRealCurrentLineNb() + 1, $this->currentLine));
       }
     }
     else
@@ -334,7 +355,7 @@ class Parser
       }
       else
       {
-        throw new ParserException(sprintf('Indentation problem at line %d (%s)', $this->getRealCurrentLineNb() + 1, $this->currentLine));
+        throw new \InvalidArgumentException(sprintf('Indentation problem at line %d (%s)', $this->getRealCurrentLineNb() + 1, $this->currentLine));
       }
     }
 
@@ -386,7 +407,7 @@ class Parser
 
       if (!array_key_exists($value, $this->refs))
       {
-        throw new ParserException(sprintf('Reference "%s" does not exist (%s).', $value, $this->currentLine));
+        throw new \InvalidArgumentException(sprintf('Reference "%s" does not exist (%s).', $value, $this->currentLine));
       }
       return $this->refs[$value];
     }
@@ -431,7 +452,7 @@ class Parser
       return '';
     }
 
-    if (!preg_match('#^(?P<indent>'.($indentation ? str_repeat(' ', $indentation) : ' +').')(?P<text>.*)$#', $this->currentLine, $matches))
+    if (!preg_match('#^(?P<indent>'.($indentation ? str_repeat(' ', $indentation) : ' +').')(?P<text>.*)$#u', $this->currentLine, $matches))
     {
       $this->moveToPreviousLine();
 
@@ -446,7 +467,7 @@ class Parser
     {
       $this->moveToNextLine();
 
-      if (preg_match('#^(?P<indent> {'.strlen($textIndent).',})(?P<text>.+)$#', $this->currentLine, $matches))
+      if (preg_match('#^(?P<indent> {'.strlen($textIndent).',})(?P<text>.+)$#u', $this->currentLine, $matches))
       {
         if (' ' == $separator && $previousIndent != $matches['indent'])
         {
@@ -570,11 +591,11 @@ class Parser
 
     // strip YAML header
     $count = 0;
-    $value = preg_replace('#^\%YAML[: ][\d\.]+.*\n#s', '', $value, -1, $count);
+    $value = preg_replace('#^\%YAML[: ][\d\.]+.*\n#su', '', $value, -1, $count);
     $this->offset += $count;
 
-    // remove leading comments and/or ---
-    $trimmedValue = preg_replace('#^((\#.*?\n)|(\-\-\-.*?\n))*#s', '', $value, -1, $count);
+    // remove leading comments
+    $trimmedValue = preg_replace('#^(\#.*?\n)+#s', '', $value, -1, $count);
     if ($count == 1)
     {
       // items have been removed, update the offset
@@ -582,6 +603,19 @@ class Parser
       $value = $trimmedValue;
     }
 
+    // remove start of the document marker (---)
+    $trimmedValue = preg_replace('#^\-\-\-.*?\n#s', '', $value, -1, $count);
+    if ($count == 1)
+    {
+      // items have been removed, update the offset
+      $this->offset += substr_count($value, "\n") - substr_count($trimmedValue, "\n");
+      $value = $trimmedValue;
+
+      // remove end of the document marker (...)
+      $value = preg_replace('#\.\.\.\s*$#s', '', $value);
+    }
+
     return $value;
   }
 }
+?>
