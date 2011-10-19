@@ -4,10 +4,7 @@
     <title>Symfony Components YAML Library</title>
     <description>The Symfony YAML Component</description>
     <version>1.0.6</version>
-    <state>Development</state>
-    <categories>
-        <category>Backend</category>
-    </categories>
+    <categories/>
     <constraints>
         <depends>
             <package>TYPO3.FLOW3</package>
